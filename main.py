@@ -5,7 +5,6 @@ Streamlit-based web interface for financial health assessment
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from inference_engine import WealthWiseInferenceEngine
 
 # Page configuration
@@ -112,10 +111,10 @@ def main():
             engine = WealthWiseInferenceEngine()
             results = engine.evaluate_financial_health(user_data)
             
-            # Display results
-            display_results(results, user_data)
+            # Display results - PASS THE ENGINE TO THE FUNCTION
+            display_results(results, user_data, engine)
 
-def display_results(results, user_data):
+def display_results(results, user_data, engine):
     """Display the analysis results in an organized way"""
     
     # Score and Grade Display
@@ -192,7 +191,7 @@ def display_results(results, user_data):
     # Recommendations by Priority
     st.markdown("### 🎯 Personalized Recommendations")
     
-    # Sort recommendations by priority
+    # Sort recommendations by priority - NOW engine is available
     sorted_recommendations = engine.get_recommendations_by_priority()
     
     # Display by severity categories
@@ -234,7 +233,10 @@ def display_results(results, user_data):
             'Score Impact': f"{rec['score_impact']:+.1f}"
         })
     
-    st.table(pd.DataFrame(analysis_data))
+    if analysis_data:
+        st.table(pd.DataFrame(analysis_data))
+    else:
+        st.info("No specific recommendations generated. Your financial health appears to be excellent across all categories!")
 
 def get_score_color(score):
     """Return color based on score"""
