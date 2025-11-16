@@ -1,13 +1,23 @@
 """
-WealthWise AI - Main Application
-Streamlit-based web interface for financial health assessment
+WealthWise AI - Personal Finance Health Assessment System
+Render-optimized version
 """
 
 import streamlit as st
 import pandas as pd
-from inference_engine import WealthWiseInferenceEngine
+import sys
+import os
 
-# Page configuration
+# Add the current directory to Python path for Render
+sys.path.append(os.path.dirname(__file__))
+
+try:
+    from inference_engine import WealthWiseInferenceEngine
+except ImportError as e:
+    st.error(f"Error importing inference engine: {e}")
+    st.stop()
+
+# Page configuration for Render
 st.set_page_config(
     page_title="WealthWise AI",
     page_icon="💰",
@@ -15,7 +25,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+def initialize_session_state():
+    """Initialize session state variables"""
+    if 'analysis_done' not in st.session_state:
+        st.session_state.analysis_done = False
+    if 'results' not in st.session_state:
+        st.session_state.results = None
+    if 'user_data' not in st.session_state:
+        st.session_state.user_data = None
+
 def main():
+    initialize_session_state()
+    
     # Custom CSS for better styling
     st.markdown("""
     <style>
@@ -69,6 +90,46 @@ def main():
         analyze_button = st.button("🚀 Analyze My Financial Health", type="primary", use_container_width=True)
     
     # Main content area
+    if not st.session_state.analysis_done:
+        show_welcome_content()
+    else:
+        show_results()
+    
+    # Process analysis when button is clicked
+    if analyze_button:
+        with st.spinner("Analyzing your financial health..."):
+            # Prepare user data
+            user_data = {
+                'age': age,
+                'monthly_income': monthly_income,
+                'monthly_expenses': monthly_expenses,
+                'housing_cost': housing_cost,
+                'emergency_savings': emergency_savings,
+                'retirement_savings': retirement_savings,
+                'monthly_savings': monthly_savings,
+                'total_monthly_debt': total_monthly_debt
+            }
+            
+            try:
+                # Initialize and run inference engine
+                engine = WealthWiseInferenceEngine()
+                results = engine.evaluate_financial_health(user_data)
+                
+                # Store results in session state
+                st.session_state.results = results
+                st.session_state.user_data = user_data
+                st.session_state.engine = engine
+                st.session_state.analysis_done = True
+                
+                # Rerun to show results
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Error during analysis: {str(e)}")
+                st.info("Please check your input values and try again.")
+
+def show_welcome_content():
+    """Show welcome content before analysis"""
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -91,31 +152,16 @@ def main():
         - Count all debt payments
         - Be honest about savings
         """)
-    
-    # Process analysis when button is clicked
-    if analyze_button:
-        with st.spinner("Analyzing your financial health..."):
-            # Prepare user data
-            user_data = {
-                'age': age,
-                'monthly_income': monthly_income,
-                'monthly_expenses': monthly_expenses,
-                'housing_cost': housing_cost,
-                'emergency_savings': emergency_savings,
-                'retirement_savings': retirement_savings,
-                'monthly_savings': monthly_savings,
-                'total_monthly_debt': total_monthly_debt
-            }
-            
-            # Initialize and run inference engine
-            engine = WealthWiseInferenceEngine()
-            results = engine.evaluate_financial_health(user_data)
-            
-            # Display results - PASS THE ENGINE TO THE FUNCTION
-            display_results(results, user_data, engine)
 
-def display_results(results, user_data, engine):
-    """Display the analysis results in an organized way"""
+def show_results():
+    """Display analysis results"""
+    if st.session_state.results is None:
+        st.warning("No analysis results available. Please run the analysis first.")
+        return
+    
+    results = st.session_state.results
+    user_data = st.session_state.user_data
+    engine = st.session_state.engine
     
     # Score and Grade Display
     st.markdown("---")
@@ -191,7 +237,7 @@ def display_results(results, user_data, engine):
     # Recommendations by Priority
     st.markdown("### 🎯 Personalized Recommendations")
     
-    # Sort recommendations by priority - NOW engine is available
+    # Sort recommendations by priority
     sorted_recommendations = engine.get_recommendations_by_priority()
     
     # Display by severity categories
@@ -220,29 +266,19 @@ def display_results(results, user_data, engine):
                 st.write(rec['explanation'])
                 st.caption(f"Impact: {rec['score_impact']:+.1f} points")
     
-    # Detailed Financial Analysis
-    st.markdown("### 📋 Detailed Financial Analysis")
-    
-    # Create a summary table
-    analysis_data = []
-    for rec in sorted_recommendations:
-        analysis_data.append({
-            'Category': rec['category'].replace('_', ' ').title(),
-            'Recommendation': rec['message'],
-            'Severity': rec['severity'].title(),
-            'Score Impact': f"{rec['score_impact']:+.1f}"
-        })
-    
-    if analysis_data:
-        st.table(pd.DataFrame(analysis_data))
-    else:
-        st.info("No specific recommendations generated. Your financial health appears to be excellent across all categories!")
+    # New Analysis Button
+    st.markdown("---")
+    if st.button("🔄 Perform New Analysis", use_container_width=True):
+        st.session_state.analysis_done = False
+        st.session_state.results = None
+        st.session_state.user_data = None
+        st.rerun()
 
 def get_score_color(score):
     """Return color based on score"""
-    if score >= 80: return "#2e7d32"  # Green
-    elif score >= 60: return "#ffa726"  # Orange
-    else: return "#ef5350"  # Red
+    if score >= 80: return "#2e7d32"
+    elif score >= 60: return "#ffa726"
+    else: return "#ef5350"
 
 def get_grade_color(grade):
     """Return color based on grade"""
